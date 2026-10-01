@@ -2,12 +2,18 @@
   <app-login></app-login>
 } @else {
   <app-identity-dashboard></app-identity-dashboard>
-  @if (session.role() === 'admin') {
-    <app-admin-offer></app-admin-offer>
-  } @else {
-    <app-my-appointments></app-my-appointments>
-  }
-  @if (session.role() === 'doctor' || session.role() === 'admin') {
-    <app-operations-panel></app-operations-panel>
+  @switch (session.role()) {
+    @case ('admin') {
+      <app-operations-panel></app-operations-panel>
+      <app-admin-offer></app-admin-offer>
+    }
+    @case ('doctor') {
+      <app-professional-agenda></app-professional-agenda>
+      <app-operations-panel></app-operations-panel>
+    }
+    @default {
+      <app-book-appointment></app-book-appointment>
+      <app-my-appointments></app-my-appointments>
+    }
   }
 }

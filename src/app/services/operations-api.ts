@@ -12,4 +12,8 @@ export class OperationsApi {
   agenda() { return this.http.get<ProfessionalAppointment[]>(`${environment.apiUrl}/professional/appointments`); }
   close(id: string, status: 'COMPLETED' | 'NO_SHOW') { return this.http.post(`${environment.apiUrl}/professional/appointments/${id}/closure`, { status }); }
   inbox() { return this.http.get<InboxItem[]>(`${environment.apiUrl}/admin/inbox`); }
+  /** HU-024 · Aprobar o rechazar (con motivo obligatorio) una solicitud especializada. */
+  decide(appointmentId: string, decision: 'APPROVE' | 'REJECT', reason?: string) {
+    return this.http.post<{ id: number; status: string }>(`${environment.apiUrl}/admin/appointments/${appointmentId}/decision`, { decision, reason });
+  }
 }
