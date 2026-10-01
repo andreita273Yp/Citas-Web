@@ -6,11 +6,12 @@ import { IdentityDashboard } from './components/identity-dashboard/identity-dash
 import { MyAppointments } from './components/my-appointments/my-appointments';
 import { AuthSession } from './services/auth-session';
 import { OperationsPanel } from './components/operations-panel/operations-panel';
+import { AdminOffer } from './components/admin-offer/admin-offer';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-root',
-  imports: [CommonModule, Login, IdentityDashboard, MyAppointments, OperationsPanel],
+  imports: [CommonModule, Login, IdentityDashboard, MyAppointments, OperationsPanel, AdminOffer],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

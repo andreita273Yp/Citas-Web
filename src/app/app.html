@@ -2,7 +2,9 @@
   <app-login></app-login>
 } @else {
   <app-identity-dashboard></app-identity-dashboard>
-  @if (session.role() !== 'admin') {
+  @if (session.role() === 'admin') {
+    <app-admin-offer></app-admin-offer>
+  } @else {
     <app-my-appointments></app-my-appointments>
   }
   @if (session.role() === 'doctor' || session.role() === 'admin') {
