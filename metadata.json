@@ -1,6 +1,0 @@
-{
-  "name": "FCV Clínica & Agendamiento",
-  "description": "Portal clínico institucional de agendamiento y gestión médica de la Fundación Cardiovascular (FCV).",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
