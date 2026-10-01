@@ -15,7 +15,8 @@ export class ClinicalData {
   private readonly authApi = inject(AuthApi);
   private readonly authSession = inject(AuthSession);
   // Session & navigation state
-  isAuthenticated = signal<boolean>(false);
+  /** Única fuente de verdad: hay sesión mientras exista un access token en memoria. */
+  readonly isAuthenticated = computed(() => this.authSession.accessToken() !== null);
   currentRole = signal<UserRole>('patient');
   currentView = signal<MainView>('inicio');
   currentSede = signal<string>('Sede Principal - Bucaramanga');
@@ -459,14 +460,12 @@ export class ClinicalData {
 
   login(role: UserRole = 'patient') {
     this.currentRole.set(role);
-    this.isAuthenticated.set(true);
     this.currentView.set('inicio');
     this.showToast(`Bienvenido al Portal Clínico FCV`, 'success');
   }
 
   private clearSession() {
     this.authSession.clear();
-    this.isAuthenticated.set(false);
     this.currentView.set('inicio');
     this.showToast('Has cerrado sesión correctamente del portal FCV.', 'info');
   }
