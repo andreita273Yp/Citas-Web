@@ -2,11 +2,9 @@
 
 ## Estado observado del repositorio
 
-Al crear este archivo no existen `package.json`, código fuente, rutas, estilos, tokens, pruebas ni documentación de diseño aprobada dentro de este repositorio. No hay evidencia para identificar React o Angular. Las HU y DoD compartidas en `../citas-api/docs/wiki/scrum/` tampoco están disponibles: solo existen directorios con archivos de reserva.
+Existe un frontend Angular 21 + TypeScript importado, con rutas, estilos, componentes, `package.json` y pruebas. El único cliente REST inicial es `AuthApi`; el resto de datos clínicos y de agendamiento aún son datos locales que se retirarán por HU aprobada.
 
-No elegir, inicializar, reemplazar ni reorganizar un framework por preferencia. Esperar la importación real desde Google AI Studio y detectar entonces el stack desde `package.json`, archivos de configuración, estructura de rutas, estilos y scripts existentes.
-
-El worktree tiene una eliminación preexistente de `.env.example`; no restaurarla, abrirla ni inferir su contenido sin instrucción expresa.
+No reemplazar Angular ni rediseñar la interfaz por preferencia. Preserva los cambios locales existentes y no abras ni imprimas secretos de `.env`.
 
 ## Fuentes y orden de consulta
 
@@ -52,7 +50,7 @@ Este repositorio implementa exclusivamente el frontend TypeScript que exporte Go
 2. Elaborar un plan antes de editar, incluyendo archivos, impacto visual y dependencia contractual.
 3. Mapear explícitamente para cada flujo los estados `loading`, `empty`, `error`, `success` y `disabled`, incluidos reintentos cuando estén justificados.
 4. Implementar el mínimo coherente sin rediseñar el resultado aprobado ni duplicar reglas del backend.
-5. Ejecutar los scripts reales disponibles de build, typecheck, lint y pruebas; no inventar comandos si todavía no existe `package.json`.
+5. Ejecutar los scripts reales disponibles de build, typecheck, lint y pruebas. En Windows, usar el contenedor Node Linux con su volumen `web_node_modules` para evitar incompatibilidades de binarios nativos.
 6. Verificar comportamiento contra CA/DoD, autorización de rutas, accesibilidad y estados de UI.
 7. Resumir evidencia, comandos ejecutados, resultados y elementos no verificados; escalar al orquestador cualquier cambio REST.
 
@@ -64,6 +62,6 @@ Representar en UI los estados y resultados definidos por el backend: aprobación
 
 ## Git y verificación
 
-`main` es estable y `develop` es trabajo. El repositorio observado solo tiene `main`; no crear ni alterar ramas sin una tarea que lo autorice. No reescribir historial para ocultar avance.
+`main` es estable y `develop` es trabajo. No reescribir historial para ocultar avance.
 
-Cuando el frontend esté importado, respetar el gestor de paquetes y scripts existentes. Declarar expresamente cualquier validación que no pueda ejecutarse por ausencia de proyecto, dependencias, backend o contrato REST.
+Respetar npm y los scripts existentes. Declarar expresamente cualquier validación que no pueda ejecutarse por ausencia de dependencias, backend o contrato REST.
