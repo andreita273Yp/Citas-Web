@@ -3,13 +3,14 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { apiErrorMessage } from '../../services/api-error';
 import { Location, NewProfessional, OfferApi, Professional, Specialty } from '../../services/offer-api';
+import { AdminInsurance } from '../admin-insurance/admin-insurance';
 
-type Tab = 'specialties' | 'professionals';
+type Tab = 'specialties' | 'professionals' | 'insurance';
 
-/** HU-014 a HU-017 · CRUD de especialidades y de profesionales para ADMIN. El backend valida todas las reglas. */
+/** HU-012 a HU-017 · CRUD de especialidades, profesionales y EPS/planes para ADMIN. El backend valida todas las reglas. */
 @Component({
   selector: 'app-admin-offer',
-  imports: [FormsModule],
+  imports: [FormsModule, AdminInsurance],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-offer.html',
 })

@@ -2,20 +2,24 @@
   <section class="mx-auto max-w-5xl space-y-6">
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-bold uppercase tracking-widest text-[#006ef4]">Administración · Oferta de atención</p>
-        <h1 class="mt-2 text-3xl font-extrabold text-[#002777]">Especialidades y profesionales</h1>
+        <p class="text-xs font-bold uppercase tracking-widest text-[#006ef4]">Administración</p>
+        <h1 class="mt-2 text-3xl font-extrabold text-[#002777]">Catálogos y profesionales</h1>
       </div>
       <nav class="flex gap-2" aria-label="Secciones de administración">
         <button type="button" (click)="tab.set('specialties')" [attr.aria-pressed]="tab() === 'specialties'"
           [class]="tab() === 'specialties' ? 'rounded-lg bg-[#002777] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#c5c6d3] px-4 py-2 text-sm font-bold text-[#002777]'">Especialidades</button>
         <button type="button" (click)="tab.set('professionals')" [attr.aria-pressed]="tab() === 'professionals'"
           [class]="tab() === 'professionals' ? 'rounded-lg bg-[#002777] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#c5c6d3] px-4 py-2 text-sm font-bold text-[#002777]'">Profesionales</button>
+        <button type="button" (click)="tab.set('insurance')" [attr.aria-pressed]="tab() === 'insurance'"
+          [class]="tab() === 'insurance' ? 'rounded-lg bg-[#002777] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#c5c6d3] px-4 py-2 text-sm font-bold text-[#002777]'">EPS y planes</button>
       </nav>
     </header>
 
     @if (error()) { <p class="rounded-xl bg-[#ffdad6] p-4 text-sm text-[#93000a]" role="alert">{{ error() }}</p> }
     @if (message()) { <p class="rounded-xl bg-[#e5f5e7] p-4 text-sm text-[#0b5d1e]" role="status">{{ message() }}</p> }
     @if (loading()) { <p class="rounded-xl bg-white p-6 text-sm text-[#667085] shadow-sm">Cargando…</p> }
+
+    @if (tab() === 'insurance') { <app-admin-insurance></app-admin-insurance> }
 
     @if (!loading() && tab() === 'specialties') {
       <section class="rounded-2xl bg-white p-6 shadow-sm">

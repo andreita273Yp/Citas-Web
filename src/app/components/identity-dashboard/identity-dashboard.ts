@@ -1,26 +1,96 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { apiErrorMessage } from '../../services/api-error';
 import { AuthSession } from '../../services/auth-session';
-import { Eps, EpsPlan, IdentityApi, Profile } from '../../services/identity-api';
 import { ClinicalData } from '../../services/clinical-data';
+import { Affiliation, Eps, EpsPlan, IdentityApi, Profile } from '../../services/identity-api';
 
-@Component({ selector: 'app-identity-dashboard', imports: [CommonModule, FormsModule], changeDetection: ChangeDetectionStrategy.OnPush, template: `
-<main class="min-h-screen bg-[#f8f9ff] p-5 sm:p-10"><section class="mx-auto max-w-4xl space-y-6">
-  <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-widest text-[#006ef4]">Fase 4 · Perfil e identidad</p><h1 class="mt-2 text-3xl font-extrabold text-[#002777]">Mi cuenta</h1></div><button (click)="clinical.logout()" class="rounded-xl bg-[#002777] px-4 py-2 text-sm font-bold text-white">Cerrar sesión</button></div>
-  @if (error()) { <p class="rounded-xl bg-[#ffdad6] p-4 text-sm text-[#93000a]">{{ error() }}</p> } @if (message()) { <p class="rounded-xl bg-[#e5f5e7] p-4 text-sm text-[#0b5d1e]">{{ message() }}</p> }
-  @if (profile(); as user) { <div class="grid gap-6 md:grid-cols-2"><section class="rounded-2xl bg-white p-6 shadow-sm"><h2 class="text-xl font-bold text-[#002777]">Datos personales</h2><dl class="mt-4 space-y-2 text-sm"><div><dt class="text-[#667085]">Nombre</dt><dd>{{ user.firstName }} {{ user.lastName }}</dd></div><div><dt class="text-[#667085]">Correo</dt><dd>{{ user.email }}</dd></div><div><dt class="text-[#667085]">Documento</dt><dd>{{ user.documentType }} {{ user.documentNumber }}</dd></div></dl><label class="mt-5 block text-sm font-semibold">Teléfono<input [(ngModel)]="phone" name="phone" class="mt-1 w-full rounded-lg border px-3 py-2"></label><button (click)="savePhone()" class="mt-3 rounded-lg bg-[#006ef4] px-4 py-2 text-sm font-bold text-white">Guardar teléfono</button></section>
-  <section class="rounded-2xl bg-white p-6 shadow-sm"><h2 class="text-xl font-bold text-[#002777]">Afiliación opcional</h2><p class="mt-1 text-sm text-[#667085]">No afecta la disponibilidad ni el agendamiento.</p><label class="mt-4 block text-sm font-semibold">EPS<select [(ngModel)]="selectedEps" (ngModelChange)="loadPlans()" name="eps" class="mt-1 w-full rounded-lg border px-3 py-2"><option [ngValue]="null">Selecciona una EPS</option>@for (eps of epsList(); track eps.id) {<option [ngValue]="eps.id">{{eps.name}}</option>}</select></label><label class="mt-3 block text-sm font-semibold">Plan<select [(ngModel)]="selectedPlan" name="plan" class="mt-1 w-full rounded-lg border px-3 py-2"><option [ngValue]="null">Selecciona un plan</option>@for (plan of plans(); track plan.id) {<option [ngValue]="plan.id">{{plan.name}}</option>}</select></label><label class="mt-3 block text-sm font-semibold">Régimen<select [(ngModel)]="regime" name="regime" class="mt-1 w-full rounded-lg border px-3 py-2"><option value="CONTRIBUTIVE">Contributivo</option><option value="SUBSIDIZED">Subsidiado</option><option value="SPECIAL">Especial</option></select></label><button (click)="saveAffiliation()" [disabled]="!selectedPlan" class="mt-4 rounded-lg bg-[#006ef4] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Guardar afiliación</button></section></div> }
-  @if (session.role() === 'admin') { <section class="rounded-2xl bg-white p-6 shadow-sm"><h2 class="text-xl font-bold text-[#002777]">Catálogos administrativos</h2><div class="mt-4 grid gap-4 md:grid-cols-2"><div><input [(ngModel)]="newEps" placeholder="Nombre EPS" class="w-full rounded-lg border px-3 py-2"><button (click)="createEps()" class="mt-2 rounded-lg bg-[#006ef4] px-4 py-2 text-sm font-bold text-white">Crear EPS</button><ul class="mt-3 space-y-2 text-sm">@for(eps of adminEps(); track eps.id){<li class="flex justify-between rounded border p-2">{{eps.name}} <button (click)="toggleEps(eps)" class="text-[#006ef4]">{{eps.active ? 'Desactivar' : 'Activar'}}</button></li>}</ul></div><div><select [(ngModel)]="adminPlanEps" name="adminPlanEps" class="w-full rounded-lg border px-3 py-2"><option [ngValue]="null">EPS del plan</option>@for(eps of adminEps(); track eps.id){<option [ngValue]="eps.id">{{eps.name}}</option>}</select><input [(ngModel)]="newPlan" placeholder="Nombre plan" class="mt-2 w-full rounded-lg border px-3 py-2"><button (click)="createPlan()" class="mt-2 rounded-lg bg-[#006ef4] px-4 py-2 text-sm font-bold text-white">Crear plan</button></div></div></section> }
-</section></main>` })
+/** HU-010 perfil (solo teléfono editable) · HU-011 afiliación opcional (EPS → plan; el régimen sale del plan). */
+@Component({
+  selector: 'app-identity-dashboard',
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './identity-dashboard.html',
+})
 export class IdentityDashboard {
-  readonly api=inject(IdentityApi); readonly session=inject(AuthSession); readonly clinical=inject(ClinicalData); readonly profile=signal<Profile|null>(null); readonly epsList=signal<Eps[]>([]); readonly plans=signal<EpsPlan[]>([]); readonly adminEps=signal<Eps[]>([]); readonly error=signal(''); readonly message=signal(''); phone=''; selectedEps:number|null=null; selectedPlan:number|null=null; regime='CONTRIBUTIVE'; newEps=''; newPlan=''; adminPlanEps:number|null=null;
-  constructor(){this.api.me().subscribe({next:p=>{this.profile.set(p);this.phone=p.phone;},error:()=>this.error.set('No fue posible cargar tu perfil.')});this.api.eps().subscribe({next:v=>this.epsList.set(v)});this.api.affiliation().subscribe({next:a=>{const eps=a['epsId'];const plan=a['insurancePlanId'];const regime=a['regimeCode'];if(typeof regime==='string')this.regime=regime;if(typeof eps==='number'){this.selectedEps=eps;this.api.plans(eps).subscribe({next:v=>{this.plans.set(v);if(typeof plan==='number')this.selectedPlan=plan;}});}}});if(this.session.role()==='admin')this.reloadAdmin();}
-  loadPlans(){this.selectedPlan=null;this.plans.set([]);if(this.selectedEps)this.api.plans(this.selectedEps).subscribe({next:v=>this.plans.set(v)});}
-  savePhone(){this.api.updatePhone(this.phone).subscribe({next:p=>{this.profile.set(p);this.message.set('Teléfono actualizado.');},error:()=>this.error.set('No fue posible actualizar el teléfono.')});}
-  saveAffiliation(){if(!this.selectedPlan)return;this.api.saveAffiliation(this.selectedPlan,this.regime).subscribe({next:()=>this.message.set('Afiliación guardada.'),error:()=>this.error.set('No fue posible guardar la afiliación.')});}
-  reloadAdmin(){this.api.adminEps().subscribe({next:v=>this.adminEps.set(v),error:()=>this.error.set('No fue posible cargar los catálogos administrativos.')});}
-  createEps(){if(!this.newEps.trim())return;this.api.createEps(this.newEps).subscribe({next:()=>{this.newEps='';this.reloadAdmin();},error:()=>this.error.set('No fue posible crear la EPS.')});}
-  toggleEps(eps:Eps){this.api.updateEps(eps.id,!eps.active).subscribe({next:()=>this.reloadAdmin(),error:()=>this.error.set('No fue posible actualizar la EPS.')});}
-  createPlan(){if(!this.adminPlanEps||!this.newPlan.trim())return;this.api.createPlan(this.adminPlanEps,this.newPlan).subscribe({next:()=>{this.newPlan='';this.message.set('Plan creado.');},error:()=>this.error.set('No fue posible crear el plan.')});}
+  private readonly api = inject(IdentityApi);
+  readonly session = inject(AuthSession);
+  readonly clinical = inject(ClinicalData);
+
+  readonly profile = signal<Profile | null>(null);
+  readonly affiliation = signal<Affiliation | null>(null);
+  readonly epsList = signal<Eps[]>([]);
+  readonly plans = signal<EpsPlan[]>([]);
+  readonly saving = signal(false);
+  readonly error = signal('');
+  readonly message = signal('');
+
+  /** La afiliación aplica a pacientes; el personal no la necesita para operar. */
+  readonly isPatient = computed(() => this.session.role() === 'patient');
+
+  phone = '';
+  selectedEps: number | null = null;
+  selectedPlan: number | null = null;
+  membershipNumber = '';
+
+  readonly selectedPlanInfo = computed(() => this.plans().find(p => p.id === this.selectedPlanSignal()) ?? null);
+  private readonly selectedPlanSignal = signal<number | null>(null);
+
+  constructor() {
+    this.api.me().subscribe({ next: p => { this.profile.set(p); this.phone = p.phone; }, error: e => this.fail(e, 'No fue posible cargar tu perfil.') });
+    if (this.isPatient()) {
+      this.api.eps().subscribe({ next: v => this.epsList.set(v), error: e => this.fail(e, 'No fue posible cargar las EPS.') });
+      this.api.affiliation().subscribe({ next: a => this.showAffiliation(a), error: e => this.fail(e, 'No fue posible cargar tu afiliación.') });
+    }
+  }
+
+  savePhone() {
+    this.start();
+    this.api.updatePhone(this.phone).subscribe({
+      next: p => { this.profile.set(p); this.phone = p.phone; this.done('Teléfono actualizado.'); },
+      error: e => this.failSave(e, 'No fue posible actualizar el teléfono.'),
+    });
+  }
+
+  loadPlans(keepPlan: number | null = null) {
+    this.selectedPlan = keepPlan;
+    this.selectedPlanSignal.set(keepPlan);
+    this.plans.set([]);
+    if (this.selectedEps) {
+      this.api.plans(this.selectedEps).subscribe({ next: v => this.plans.set(v), error: e => this.fail(e, 'No fue posible cargar los planes.') });
+    }
+  }
+
+  choosePlan() {
+    this.selectedPlanSignal.set(this.selectedPlan);
+  }
+
+  saveAffiliation() {
+    if (!this.selectedPlan) return;
+    this.start();
+    this.api.saveAffiliation(this.selectedPlan, this.membershipNumber).subscribe({
+      next: a => { this.affiliation.set(a); this.done('Afiliación guardada.'); },
+      error: e => this.failSave(e, 'No fue posible guardar la afiliación.'),
+    });
+  }
+
+  endAffiliation() {
+    this.start();
+    this.api.endAffiliation().subscribe({
+      next: () => { this.showAffiliation(null); this.done('Afiliación retirada.'); },
+      error: e => this.failSave(e, 'No fue posible retirar la afiliación.'),
+    });
+  }
+
+  private showAffiliation(a: Affiliation | null) {
+    this.affiliation.set(a);
+    this.selectedEps = a?.epsId ?? null;
+    this.membershipNumber = a?.membershipNumber ?? '';
+    this.loadPlans(a?.planId ?? null);
+  }
+
+  private start() { this.saving.set(true); this.error.set(''); this.message.set(''); }
+  private done(text: string) { this.message.set(text); this.saving.set(false); }
+  private failSave(e: unknown, fallback: string) { this.fail(e, fallback); this.saving.set(false); }
+  private fail(e: unknown, fallback: string) { this.error.set(apiErrorMessage(e, fallback)); }
 }
