@@ -55,6 +55,7 @@
               @if (cancellable(a)) {
                 <button type="button" (click)="cancel(a)" [disabled]="busy()" class="rounded-lg border border-[#ba1a1a] px-3 py-2 text-sm font-bold text-[#93000a] disabled:opacity-60">Cancelar cita</button>
               }
+              <app-status-history [appointmentId]="a.id"></app-status-history>
             </div>
 
             @if (rescheduling()?.id === a.id) {

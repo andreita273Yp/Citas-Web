@@ -6,15 +6,16 @@ import { Observable } from 'rxjs';
 import { apiErrorMessage } from '../../services/api-error';
 import { Appointment, AppointmentApi, AppointmentFilter, AppointmentStatus } from '../../services/appointment-api';
 import { AvailableStart, BookingApi, LocationOption } from '../../services/booking-api';
+import { StatusHistory } from '../status-history/status-history';
 
 const LABELS: Record<AppointmentStatus, string> = {
   REQUESTED: 'Pendiente de aprobación', APPROVED: 'Aprobada', REJECTED: 'Rechazada', CANCELLED: 'Cancelada', COMPLETED: 'Atendida', NO_SHOW: 'No asistió',
 };
 
-/** HU-025 a HU-028 · Mis citas: filtros, detalle, cancelación y reprogramación (mismo profesional y especialidad). */
+/** HU-025 a HU-028 · Mis citas: filtros, detalle, cancelación y reprogramación (mismo profesional y especialidad). HU-032 · historial. */
 @Component({
   selector: 'app-my-appointments',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, StatusHistory],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './my-appointments.html',
 })
