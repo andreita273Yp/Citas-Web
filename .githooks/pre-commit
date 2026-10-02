@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Pre-commit de citas-web (S3 · V8). Activación, una vez por clon: git config core.hooksPath .githooks
+#   1. Secretos y archivos .env staged (siempre).
+#   2. Lint, pruebas (Vitest) y build con typecheck en Docker (citas-web-dev) si el commit toca código o configuración (o siempre con HOOK_FULL=1).
+set -uo pipefail
+
+repo="$(git rev-parse --show-toplevel)"
+"$repo/.githooks/check-secrets.sh" || exit 1
+
+if [ "${HOOK_FULL:-0}" != 1 ] && ! git diff --cached --name-only | grep -qE '^(src/|public/|package(-lock)?\.json$|angular\.json$|tsconfig.*\.json$|eslint\.config\.)'; then
+  echo "pre-commit: sin cambios de código frontend; se omiten lint, pruebas y build"
+  echo "pre-commit: PASS"
+  exit 0
+fi
+
+# Docker Desktop en Windows puede no estar en el PATH de Git Bash.
+if ! command -v docker >/dev/null 2>&1; then
+  for dir in "$(cygpath -u "${LOCALAPPDATA:-}" 2>/dev/null)/Programs/DockerDesktop/resources/bin" "/c/Program Files/Docker/Docker/resources/bin"; do
+    [ -x "$dir/docker.exe" ] && PATH="$dir:$PATH" && break
+  done
+fi
+compose=(docker compose -f "$(dirname "$repo")/docker-compose.yml")
+if ! "${compose[@]}" ps --status running --services 2>/dev/null | grep -qx citas-web-dev; then
+  echo "pre-commit: FAIL — el contenedor citas-web-dev no está corriendo (docker compose up -d desde la raíz)" >&2
+  exit 1
+fi
+
+log=/tmp/citas-web-pre-commit.log
+for step in "npm run lint" "npx ng test --watch=false" "npm run build"; do
+  echo "pre-commit: $step…"
+  if ! "${compose[@]}" exec -T citas-web-dev sh -c "$step" > "$log" 2>&1; then
+    sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E 'rror|FAIL|×' | head -15 >&2
+    echo "pre-commit: FAIL — $step (detalle en $log)" >&2
+    exit 1
+  fi
+  sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E 'All files pass|Test Files|Tests +[0-9]|bundle generation complete' | sed 's/^ */  /'
+done
+echo "pre-commit: PASS"
