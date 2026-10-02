@@ -16,4 +16,8 @@ export class OperationsApi {
   decide(appointmentId: string, decision: 'APPROVE' | 'REJECT', reason?: string) {
     return this.http.post<{ id: number; status: string }>(`${environment.apiUrl}/admin/appointments/${appointmentId}/decision`, { decision, reason });
   }
+  /** HU-028 · Aprobar (mueve la cita) o rechazar con motivo (libera la franja retenida) una reprogramación. */
+  decideReschedule(requestId: string, decision: 'APPROVE' | 'REJECT', reason?: string) {
+    return this.http.post<{ id: number; status: string }>(`${environment.apiUrl}/admin/reschedule-requests/${requestId}/decision`, { decision, reason });
+  }
 }

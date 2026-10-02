@@ -38,14 +38,12 @@ import { InboxItem, OperationsApi, ProfessionalAppointment } from '../../service
         <p class="text-sm">{{ i.patient }} · {{ i.specialty }}</p>
         <p class="text-sm">{{ i.professional }}</p>
         <p class="text-sm text-[#667085]">{{ i.startsAt | date:'EEEE d MMM, HH:mm' }} – {{ i.endsAt | date:'HH:mm' }}</p>
-        @if (i.kind === 'SPECIALIZED_REQUEST') {
-          <div class="mt-3 flex flex-wrap items-end gap-2">
-            <button type="button" (click)="approve(i)" [disabled]="busy() === i.appointmentId" class="rounded bg-[#006ef4] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">Aprobar</button>
-            <label class="grow text-xs font-semibold">Motivo del rechazo
-              <input [(ngModel)]="reasons[i.appointmentId]" [name]="'reason-' + i.appointmentId" maxlength="500" class="mt-1 w-full rounded border border-[#c5c6d3] px-2 py-1.5 text-sm"></label>
-            <button type="button" (click)="reject(i)" [disabled]="busy() === i.appointmentId || !reasons[i.appointmentId]?.trim()" class="rounded border border-[#ba1a1a] px-3 py-2 text-sm font-bold text-[#93000a] disabled:opacity-40">Rechazar</button>
-          </div>
-        }
+        <div class="mt-3 flex flex-wrap items-end gap-2">
+          <button type="button" (click)="approve(i)" [disabled]="busy() === key(i)" class="rounded bg-[#006ef4] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">Aprobar</button>
+          <label class="grow text-xs font-semibold">Motivo del rechazo
+            <input [(ngModel)]="reasons[key(i)]" [name]="'reason-' + key(i)" maxlength="500" class="mt-1 w-full rounded border border-[#c5c6d3] px-2 py-1.5 text-sm"></label>
+          <button type="button" (click)="reject(i)" [disabled]="busy() === key(i) || !reasons[key(i)]?.trim()" class="rounded border border-[#ba1a1a] px-3 py-2 text-sm font-bold text-[#93000a] disabled:opacity-40">Rechazar</button>
+        </div>
       </article>
     } @empty { <p class="mt-4 text-sm text-[#667085]">No hay solicitudes pendientes.</p> }
   }
@@ -69,10 +67,12 @@ export class OperationsPanel {
     if (this.session.role() === 'admin') this.api.inbox().subscribe({ next: v => this.inbox.set(v), error: e => this.fail(e, 'No fue posible cargar la bandeja.') });
   }
 
+  key(item: InboxItem) { return item.kind + '-' + item.requestId; }
+
   approve(item: InboxItem) { this.decide(item, 'APPROVE'); }
 
   reject(item: InboxItem) {
-    const reason = this.reasons[item.appointmentId]?.trim();
+    const reason = this.reasons[this.key(item)]?.trim();
     if (!reason) { this.error.set('El rechazo exige un motivo.'); return; }
     this.decide(item, 'REJECT', reason);
   }
@@ -82,13 +82,14 @@ export class OperationsPanel {
   }
 
   private decide(item: InboxItem, decision: 'APPROVE' | 'REJECT', reason?: string) {
-    this.busy.set(item.appointmentId);
+    this.busy.set(this.key(item));
     this.message.set('');
     this.error.set('');
-    this.api.decide(item.appointmentId, decision, reason).subscribe({
+    const request = item.kind === 'RESCHEDULE' ? this.api.decideReschedule(item.requestId, decision, reason) : this.api.decide(item.appointmentId, decision, reason);
+    request.subscribe({
       next: () => {
-        this.message.set(decision === 'APPROVE' ? 'Solicitud aprobada.' : 'Solicitud rechazada; el horario quedó libre.');
-        delete this.reasons[item.appointmentId];
+        this.message.set(decision === 'APPROVE' ? 'Solicitud aprobada.' : 'Solicitud rechazada; la franja solicitada quedó libre.');
+        delete this.reasons[this.key(item)];
         this.busy.set(null);
         this.load();
       },

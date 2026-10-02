@@ -1,16 +1,112 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Appointment, AppointmentApi } from '../../services/appointment-api';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { apiErrorMessage } from '../../services/api-error';
+import { Appointment, AppointmentApi, AppointmentFilter, AppointmentStatus } from '../../services/appointment-api';
+import { AvailableStart, BookingApi, LocationOption } from '../../services/booking-api';
 
-@Component({ selector: 'app-my-appointments', imports: [CommonModule, FormsModule, DatePipe], changeDetection: ChangeDetectionStrategy.OnPush, template: `
-<section class="rounded-2xl bg-white p-6 shadow-sm"><div class="flex items-center justify-between gap-3"><div><h2 class="text-xl font-bold text-[#002777]">Mis citas</h2><p class="text-sm text-[#667085]">Consulta, cancela o solicita una reprogramación.</p></div><button (click)="load()" class="rounded-lg border px-3 py-2 text-sm font-bold text-[#002777]">Actualizar</button></div>
-@if (error()) { <p class="mt-4 rounded-lg bg-[#ffdad6] p-3 text-sm text-[#93000a]">{{error()}}</p> } @if (message()) { <p class="mt-4 rounded-lg bg-[#e5f5e7] p-3 text-sm text-[#0b5d1e]">{{message()}}</p> } @if (loading()) { <p class="mt-4 text-sm">Cargando citas...</p> }
-<div class="mt-4 space-y-3">@for (appointment of appointments(); track appointment.id) { <article class="rounded-xl border border-[#e5eeff] p-4"><div class="flex flex-wrap justify-between gap-2"><div><p class="font-bold text-[#002777]">{{appointment.specialty}}</p><p class="text-sm">{{appointment.professional}} · {{appointment.location}}</p><p class="text-sm text-[#667085]">{{appointment.startsAt | date:'medium'}} · {{appointment.durationMinutes}} min</p></div><strong class="text-sm text-[#006ef4]">{{appointment.status}}</strong></div>@if (appointment.decisionReason) { <p class="mt-2 text-sm text-[#93000a]">Motivo: {{appointment.decisionReason}}</p> } @if (appointment.status === 'APPROVED' || appointment.status === 'REQUESTED') { <div class="mt-3 flex flex-wrap gap-2"><button (click)="cancel(appointment)" class="rounded-lg bg-[#ffdad6] px-3 py-2 text-sm font-bold text-[#93000a]">Cancelar</button>@if (appointment.status === 'APPROVED') { <button (click)="openReschedule(appointment)" class="rounded-lg border border-[#006ef4] px-3 py-2 text-sm font-bold text-[#002777]">Reprogramar</button> }</div> } @if (selectedId() === appointment.id) { <div class="mt-3 grid gap-2 rounded-lg bg-[#f8f9ff] p-3"><label class="text-sm font-semibold">Nueva fecha y hora<input [(ngModel)]="newDateTime" type="datetime-local" class="mt-1 w-full rounded border p-2"></label><label class="text-sm font-semibold">Sede<input [(ngModel)]="newLocation" class="mt-1 w-full rounded border p-2"></label><button (click)="submitReschedule(appointment)" class="rounded-lg bg-[#006ef4] px-3 py-2 text-sm font-bold text-white">Enviar solicitud</button></div> }</article> } @empty { @if (!loading()) { <p class="rounded-lg bg-[#f8f9ff] p-4 text-sm text-[#667085]">Aún no tienes citas registradas.</p> } }</div></section>` })
+const LABELS: Record<AppointmentStatus, string> = {
+  REQUESTED: 'Pendiente de aprobación', APPROVED: 'Aprobada', REJECTED: 'Rechazada', CANCELLED: 'Cancelada', COMPLETED: 'Atendida', NO_SHOW: 'No asistió',
+};
+
+/** HU-025 a HU-028 · Mis citas: filtros, detalle, cancelación y reprogramación (mismo profesional y especialidad). */
+@Component({
+  selector: 'app-my-appointments',
+  imports: [FormsModule, DatePipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './my-appointments.html',
+})
 export class MyAppointments {
- private readonly api=inject(AppointmentApi); readonly appointments=signal<Appointment[]>([]); readonly loading=signal(true); readonly error=signal(''); readonly message=signal(''); readonly selectedId=signal<string|null>(null); newDateTime=''; newLocation='';
- constructor(){this.load();} load(){this.loading.set(true);this.error.set('');this.api.mine().subscribe({next:v=>{this.appointments.set(v);this.loading.set(false);},error:()=>{this.error.set('No fue posible cargar tus citas.');this.loading.set(false);}});}
- cancel(a:Appointment){if(!confirm('¿Deseas cancelar esta cita?'))return;this.api.cancel(a.id).subscribe({next:()=>{this.message.set('La cita fue cancelada.');this.load();},error:e=>this.error.set(e.error?.message??'No fue posible cancelar la cita.')});}
- openReschedule(a:Appointment){this.selectedId.set(a.id);this.newDateTime='';this.newLocation=a.locationId;}
- submitReschedule(a:Appointment){if(!this.newDateTime){this.error.set('Selecciona la nueva fecha y hora.');return;}this.api.reschedule(a.id,this.newDateTime,this.newLocation).subscribe({next:()=>{this.message.set('Solicitud de reprogramación enviada.');this.selectedId.set(null);},error:e=>this.error.set(e.error?.message??'No fue posible solicitar la reprogramación.')});}
+  private readonly api = inject(AppointmentApi);
+  private readonly booking = inject(BookingApi);
+
+  readonly appointments = signal<Appointment[]>([]);
+  readonly locations = signal<LocationOption[]>([]);
+  readonly loading = signal(true);
+  readonly busy = signal(false);
+  readonly error = signal('');
+  readonly message = signal('');
+
+  readonly rescheduling = signal<Appointment | null>(null);
+  readonly options = signal<AvailableStart[]>([]);
+  readonly searched = signal(false);
+
+  readonly statuses = Object.keys(LABELS) as AppointmentStatus[];
+  readonly today = new Date().toISOString().slice(0, 10);
+  filter: AppointmentFilter = { status: '', from: '', to: '' };
+  rescheduleDate = '';
+  rescheduleLocation: number | null = null;
+
+  constructor() {
+    this.booking.locations().subscribe({ next: v => this.locations.set(v) });
+    this.load();
+  }
+
+  label(status: AppointmentStatus) { return LABELS[status]; }
+
+  /** RF-14: solo citas futuras no terminales. El backend lo vuelve a validar. */
+  cancellable(a: Appointment) { return (a.status === 'APPROVED' || a.status === 'REQUESTED') && new Date(a.startsAt) > new Date(); }
+
+  /** RF-15: solo aprobadas, futuras y sin una reprogramación pendiente. */
+  reschedulable(a: Appointment) { return a.status === 'APPROVED' && new Date(a.startsAt) > new Date() && a.reschedule?.status !== 'PENDING'; }
+
+  awaitingChoice(a: Appointment) { return a.status === 'APPROVED' && a.reschedule?.status === 'REJECTED' && !a.reschedule.patientAction; }
+
+  load() {
+    this.loading.set(true);
+    this.api.mine(this.filter).subscribe({
+      next: v => { this.appointments.set(v); this.loading.set(false); },
+      error: e => { this.fail(e, 'No fue posible cargar tus citas.'); this.loading.set(false); },
+    });
+  }
+
+  cancel(a: Appointment) {
+    if (!confirm(`¿Cancelar la cita de ${a.specialty} del ${new Date(a.startsAt).toLocaleString()}?`)) return;
+    this.run(this.api.cancel(a.id), 'Cita cancelada; el horario quedó libre.');
+  }
+
+  keep(a: Appointment) {
+    if (!a.reschedule) return;
+    this.run(this.api.keepAfterRejection(a.id, a.reschedule.id), 'Conservas tu cita original.');
+  }
+
+  openReschedule(a: Appointment) {
+    this.rescheduling.set(a);
+    this.rescheduleDate = '';
+    this.rescheduleLocation = a.locationId;
+    this.options.set([]);
+    this.searched.set(false);
+  }
+
+  searchSlots() {
+    const a = this.rescheduling();
+    if (!a || !this.rescheduleDate) return;
+    this.booking.availability({ specialtyId: a.specialtyId, professionalId: a.professionalId, locationId: this.rescheduleLocation, date: this.rescheduleDate })
+      .subscribe({ next: v => { this.options.set(v); this.searched.set(true); }, error: e => this.fail(e, 'No fue posible consultar horarios.') });
+  }
+
+  requestReschedule(start: AvailableStart) {
+    const a = this.rescheduling();
+    if (!a) return;
+    this.run(this.api.reschedule(a.id, start.startAt.slice(0, 16), start.locationId),
+      'Solicitud enviada. Tu cita actual se mantiene hasta que el administrador decida.', () => this.rescheduling.set(null));
+  }
+
+  private run<T>(request: Observable<T>, success: string, after?: () => void) {
+    this.busy.set(true);
+    this.error.set('');
+    this.message.set('');
+    request.subscribe({
+      next: () => { this.message.set(success); this.busy.set(false); after?.(); this.load(); },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.fail(e, 'No fue posible completar la acción.');
+        if (e instanceof HttpErrorResponse && e.status === 409) { this.load(); if (this.rescheduling()) this.searchSlots(); }
+      },
+    });
+  }
+
+  private fail(e: unknown, fallback: string) { this.error.set(apiErrorMessage(e, fallback)); }
 }
