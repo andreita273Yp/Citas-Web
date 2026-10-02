@@ -1,0 +1,79 @@
+<section class="space-y-6">
+  @if (error()) { <p class="rounded-xl bg-[#ffdad6] p-4 text-sm text-[#93000a]" role="alert">{{ error() }}</p> }
+  @if (message()) { <p class="rounded-xl bg-[#e5f5e7] p-4 text-sm text-[#0b5d1e]" role="status">{{ message() }}</p> }
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="rounded-2xl bg-white p-6 shadow-sm">
+      <h2 class="text-xl font-bold text-[#002777]">EPS</h2>
+      <form class="mt-4 grid gap-2 sm:grid-cols-3" (ngSubmit)="createEps()">
+        <input [(ngModel)]="newEps.code" name="epsCode" required placeholder="Código (EPS_DEMO)" aria-label="Código de la EPS" class="rounded-lg border border-[#c5c6d3] px-3 py-2 text-sm">
+        <input [(ngModel)]="newEps.name" name="epsName" required placeholder="Nombre" aria-label="Nombre de la EPS" class="rounded-lg border border-[#c5c6d3] px-3 py-2 text-sm">
+        <button type="submit" [disabled]="saving()" class="rounded-lg bg-[#002777] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">Crear EPS</button>
+      </form>
+      <ul class="mt-4 space-y-2">
+        @for (e of eps(); track e.id) {
+          <li class="rounded-xl border p-3" [class]="selectedEpsId() === e.id ? 'rounded-xl border-2 border-[#006ef4] p-3' : 'rounded-xl border border-[#e5eeff] p-3'">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <button type="button" (click)="selectEps(e)" class="text-left">
+                <strong class="text-[#002777]">{{ e.name }}</strong> <span class="text-xs text-[#667085]">{{ e.code }}</span>
+                @if (!e.active) { <span class="ml-1 rounded-full bg-[#eef0f4] px-2 py-0.5 text-xs font-bold">Inactiva</span> }
+              </button>
+              <button type="button" (click)="toggleEps(e)" [disabled]="saving()" class="rounded-lg border border-[#c5c6d3] px-2 py-1 text-xs font-bold text-[#002777] disabled:opacity-60">{{ e.active ? 'Desactivar' : 'Activar' }}</button>
+            </div>
+            <div class="mt-2 flex gap-2">
+              <input [(ngModel)]="renames['eps-' + e.id]" [name]="'rename-eps-' + e.id" [placeholder]="'Nuevo nombre'" [attr.aria-label]="'Renombrar ' + e.name" class="grow rounded border border-[#c5c6d3] px-2 py-1 text-xs">
+              <button type="button" (click)="renameEps(e)" class="rounded border px-2 py-1 text-xs font-bold">Renombrar</button>
+            </div>
+          </li>
+        } @empty { <li class="text-sm text-[#667085]">No hay EPS.</li> }
+      </ul>
+    </section>
+
+    <section class="rounded-2xl bg-white p-6 shadow-sm">
+      <h2 class="text-xl font-bold text-[#002777]">Planes {{ selectedEpsId() ? '' : '(elige una EPS)' }}</h2>
+      @if (selectedEpsId()) {
+        <form class="mt-4 grid gap-2 sm:grid-cols-2" (ngSubmit)="createPlan()">
+          <input [(ngModel)]="newPlan.code" name="planCode" required placeholder="Código" aria-label="Código del plan" class="rounded-lg border border-[#c5c6d3] px-3 py-2 text-sm">
+          <input [(ngModel)]="newPlan.name" name="planName" required placeholder="Nombre" aria-label="Nombre del plan" class="rounded-lg border border-[#c5c6d3] px-3 py-2 text-sm">
+          <select [(ngModel)]="newPlan.regimeId" name="planRegime" required aria-label="Régimen" class="rounded-lg border border-[#c5c6d3] px-3 py-2 text-sm">
+            <option [ngValue]="null" disabled>Régimen…</option>
+            @for (r of regimes(); track r.id) { <option [ngValue]="r.id">{{ r.name }}</option> }
+          </select>
+          <button type="submit" [disabled]="saving()" class="rounded-lg bg-[#002777] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">Crear plan</button>
+        </form>
+        <ul class="mt-4 space-y-2">
+          @for (p of plans(); track p.id) {
+            <li class="rounded-xl border border-[#e5eeff] p-3" [class.opacity-60]="!p.active">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div><strong class="text-[#002777]">{{ p.name }}</strong> <span class="text-xs text-[#667085]">{{ p.code }}</span></div>
+                <button type="button" (click)="togglePlan(p)" [disabled]="saving()" class="rounded-lg border border-[#c5c6d3] px-2 py-1 text-xs font-bold text-[#002777] disabled:opacity-60">{{ p.active ? 'Desactivar' : 'Activar' }}</button>
+              </div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <select [ngModel]="p.regimeId" (ngModelChange)="changeRegime(p, $event)" [name]="'regime-' + p.id" [attr.aria-label]="'Régimen de ' + p.name" class="rounded border border-[#c5c6d3] px-2 py-1 text-xs">
+                  @for (r of regimes(); track r.id) { <option [ngValue]="r.id">{{ r.name }}</option> }
+                </select>
+                <input [(ngModel)]="renames['plan-' + p.id]" [name]="'rename-plan-' + p.id" placeholder="Nuevo nombre" [attr.aria-label]="'Renombrar ' + p.name" class="grow rounded border border-[#c5c6d3] px-2 py-1 text-xs">
+                <button type="button" (click)="renamePlan(p)" class="rounded border px-2 py-1 text-xs font-bold">Renombrar</button>
+              </div>
+            </li>
+          } @empty { <li class="text-sm text-[#667085]">Esta EPS no tiene planes.</li> }
+        </ul>
+      }
+    </section>
+  </div>
+
+  @if (mailbox(); as messages) {
+    <section class="rounded-2xl border border-dashed border-[#c5c6d3] bg-white p-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-[#002777]">Buzón local de recuperación (solo desarrollo)</h2>
+        <button type="button" (click)="loadMailbox()" class="rounded-lg border px-3 py-1.5 text-xs font-bold text-[#002777]">Actualizar</button>
+      </div>
+      <p class="mt-1 text-xs text-[#667085]">Sustituye al correo en el laboratorio: copia el token y pégalo en "Recuperar acceso → Ya tengo un token".</p>
+      <ul class="mt-3 space-y-2 text-sm">
+        @for (m of messages; track m.createdAt + m.email) {
+          <li class="rounded-lg bg-[#f8f9ff] p-3"><strong>{{ m.email }}</strong> · vence {{ m.expiresAt | date:'short' }}<br><code class="break-all text-xs">{{ m.token }}</code></li>
+        } @empty { <li class="text-[#667085]">Sin solicitudes recientes.</li> }
+      </ul>
+    </section>
+  }
+</section>

@@ -1,0 +1,116 @@
+<main class="min-h-screen bg-[#f8f9ff] p-5 sm:p-10">
+  <section class="mx-auto max-w-5xl space-y-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-widest text-[#006ef4]">Administración</p>
+        <h1 class="mt-2 text-3xl font-extrabold text-[#002777]">Catálogos y profesionales</h1>
+      </div>
+      <nav class="flex gap-2" aria-label="Secciones de administración">
+        <button type="button" (click)="tab.set('specialties')" [attr.aria-pressed]="tab() === 'specialties'"
+          [class]="tab() === 'specialties' ? 'rounded-lg bg-[#002777] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#c5c6d3] px-4 py-2 text-sm font-bold text-[#002777]'">Especialidades</button>
+        <button type="button" (click)="tab.set('professionals')" [attr.aria-pressed]="tab() === 'professionals'"
+          [class]="tab() === 'professionals' ? 'rounded-lg bg-[#002777] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#c5c6d3] px-4 py-2 text-sm font-bold text-[#002777]'">Profesionales</button>
+        <button type="button" (click)="tab.set('insurance')" [attr.aria-pressed]="tab() === 'insurance'"
+          [class]="tab() === 'insurance' ? 'rounded-lg bg-[#002777] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#c5c6d3] px-4 py-2 text-sm font-bold text-[#002777]'">EPS y planes</button>
+      </nav>
+    </header>
+
+    @if (error()) { <p class="rounded-xl bg-[#ffdad6] p-4 text-sm text-[#93000a]" role="alert">{{ error() }}</p> }
+    @if (message()) { <p class="rounded-xl bg-[#e5f5e7] p-4 text-sm text-[#0b5d1e]" role="status">{{ message() }}</p> }
+    @if (loading()) { <p class="rounded-xl bg-white p-6 text-sm text-[#667085] shadow-sm">Cargando…</p> }
+
+    @if (tab() === 'insurance') { <app-admin-insurance></app-admin-insurance> }
+
+    @if (!loading() && tab() === 'specialties') {
+      <section class="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-bold text-[#002777]">Nueva especialidad</h2>
+        <p class="mt-1 text-sm text-[#667085]">Las especialidades nuevas requieren aprobación administrativa. Duración: 30 min (1 franja) o 60 min (2 franjas seguidas).</p>
+        <form class="mt-4 grid gap-3 sm:grid-cols-4" (ngSubmit)="createSpecialty()">
+          <label class="text-sm font-semibold text-[#0b1c30]">Código<input [(ngModel)]="newSpecialty.code" name="code" required placeholder="DERMATOLOGIA" class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30] sm:col-span-2">Nombre<input [(ngModel)]="newSpecialty.name" name="name" required class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Duración<select [(ngModel)]="newSpecialty.durationMinutes" name="durationMinutes" class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"><option [ngValue]="30">30 min</option><option [ngValue]="60">60 min</option></select></label>
+          <button type="submit" [disabled]="saving()" class="rounded-xl bg-[#002777] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:col-span-4 sm:justify-self-end">{{ saving() ? 'Guardando…' : 'Crear especialidad' }}</button>
+        </form>
+      </section>
+
+      <section class="overflow-x-auto rounded-2xl bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-bold text-[#002777]">Catálogo ({{ specialties().length }})</h2>
+        <table class="mt-4 w-full min-w-[640px] text-left text-sm">
+          <thead class="text-xs uppercase tracking-wider text-[#667085]"><tr><th class="py-2">Especialidad</th><th>Tipo</th><th>Duración</th><th>Estado</th><th></th></tr></thead>
+          <tbody>
+            @for (s of specialties(); track s.id) {
+              <tr class="border-t border-[#e5eeff]" [class.opacity-60]="!s.active">
+                <td class="py-3"><strong class="text-[#0b1c30]">{{ s.name }}</strong><div class="text-xs text-[#667085]">{{ s.code }}</div></td>
+                <td>{{ s.general ? 'General · aprobación automática' : 'Especializada · requiere ADMIN' }}</td>
+                <td><select [ngModel]="s.durationMinutes" (ngModelChange)="changeDuration(s, $event)" [name]="'duration-' + s.id" [disabled]="saving()" [attr.aria-label]="'Duración de ' + s.name" class="rounded-lg border border-[#c5c6d3] px-2 py-1"><option [ngValue]="30">30 min</option><option [ngValue]="60">60 min</option></select></td>
+                <td><span [class]="s.active ? 'rounded-full bg-[#e5f5e7] px-2 py-1 text-xs font-bold text-[#0b5d1e]' : 'rounded-full bg-[#eef0f4] px-2 py-1 text-xs font-bold text-[#444651]'">{{ s.active ? 'Activa' : 'Inactiva' }}</span></td>
+                <td class="text-right"><button type="button" (click)="toggleSpecialty(s)" [disabled]="saving()" class="rounded-lg border border-[#c5c6d3] px-3 py-1.5 text-xs font-bold text-[#002777] disabled:opacity-60">{{ s.active ? 'Desactivar' : 'Activar' }}</button></td>
+              </tr>
+            } @empty { <tr><td colspan="5" class="py-4 text-[#667085]">No hay especialidades.</td></tr> }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    @if (!loading() && tab() === 'professionals') {
+      <section class="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-bold text-[#002777]">Nuevo profesional</h2>
+        <p class="mt-1 text-sm text-[#667085]">Usa solo datos sintéticos. La contraseña inicial se guarda cifrada y no vuelve a mostrarse.</p>
+        <form class="mt-4 grid gap-3 sm:grid-cols-3" (ngSubmit)="createProfessional()">
+          <label class="text-sm font-semibold text-[#0b1c30]">Nombres<input [(ngModel)]="newProfessional.firstName" name="firstName" required class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Apellidos<input [(ngModel)]="newProfessional.lastName" name="lastName" required class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Correo<input [(ngModel)]="newProfessional.email" name="email" type="email" required class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Tipo de documento<select [(ngModel)]="newProfessional.documentType" name="documentType" class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"><option value="CC">CC</option><option value="CE">CE</option></select></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Número de documento<input [(ngModel)]="newProfessional.documentNumber" name="documentNumber" required class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Teléfono<input [(ngModel)]="newProfessional.phone" name="phone" required class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Código profesional<input [(ngModel)]="newProfessional.professionalCode" name="professionalCode" required placeholder="PROF-009" class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Matrícula ficticia<input [(ngModel)]="newProfessional.licenseNumber" name="licenseNumber" required placeholder="RM-DEMO-0009" class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <label class="text-sm font-semibold text-[#0b1c30]">Contraseña inicial<input [(ngModel)]="newProfessional.initialPassword" name="initialPassword" type="password" required minlength="8" autocomplete="new-password" class="mt-1 w-full rounded-lg border border-[#c5c6d3] px-3 py-2"></label>
+          <button type="submit" [disabled]="saving()" class="rounded-xl bg-[#002777] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:col-span-3 sm:justify-self-end">{{ saving() ? 'Guardando…' : 'Crear profesional' }}</button>
+        </form>
+      </section>
+
+      <section class="space-y-3">
+        @for (p of professionals(); track p.id) {
+          <article class="rounded-2xl bg-white p-5 shadow-sm" [class.opacity-70]="!p.active">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-lg font-bold text-[#002777]">{{ p.firstName }} {{ p.lastName }}</h3>
+                <p class="text-sm text-[#444651]">{{ p.professionalCode }} · {{ p.licenseNumber }} · {{ p.email }}</p>
+                <p class="mt-1 text-sm"><span class="font-semibold">Especialidades:</span> {{ specialtyNames(p) }}</p>
+                <p class="text-sm"><span class="font-semibold">Sedes:</span> {{ locationCodes(p) }}</p>
+              </div>
+              <div class="flex gap-2">
+                <span [class]="p.active ? 'self-center rounded-full bg-[#e5f5e7] px-2 py-1 text-xs font-bold text-[#0b5d1e]' : 'self-center rounded-full bg-[#eef0f4] px-2 py-1 text-xs font-bold text-[#444651]'">{{ p.active ? 'Activo' : 'Inactivo' }}</span>
+                <button type="button" (click)="edit(p)" class="rounded-lg border border-[#006ef4] px-3 py-1.5 text-xs font-bold text-[#002777]">Asignaciones</button>
+                <button type="button" (click)="toggleProfessional(p)" [disabled]="saving()" class="rounded-lg border border-[#c5c6d3] px-3 py-1.5 text-xs font-bold text-[#002777] disabled:opacity-60">{{ p.active ? 'Desactivar' : 'Activar' }}</button>
+              </div>
+            </div>
+
+            @if (editing()?.id === p.id) {
+              <div class="mt-4 grid gap-4 rounded-xl bg-[#f8f9ff] p-4 md:grid-cols-2">
+                <fieldset>
+                  <legend class="text-sm font-bold text-[#0b1c30]">Especialidades (marca una primaria)</legend>
+                  @for (s of activeSpecialties(); track s.id) {
+                    <div class="mt-2 flex items-center justify-between gap-2 text-sm">
+                      <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="selectedSpecialtyIds[s.id]" [name]="'sp-' + p.id + '-' + s.id"> {{ s.name }} <span class="text-xs text-[#667085]">{{ s.durationMinutes }} min</span></label>
+                      <label class="flex items-center gap-1 text-xs"><input type="radio" [name]="'primary-' + p.id" [value]="s.id" [(ngModel)]="primarySpecialtyId" [disabled]="!selectedSpecialtyIds[s.id]"> Primaria</label>
+                    </div>
+                  }
+                  <button type="button" (click)="saveSpecialties(p)" [disabled]="saving()" class="mt-3 rounded-lg bg-[#006ef4] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">Guardar especialidades</button>
+                </fieldset>
+                <fieldset>
+                  <legend class="text-sm font-bold text-[#0b1c30]">Sedes</legend>
+                  @for (l of locations(); track l.id) {
+                    <label class="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" [(ngModel)]="selectedLocationIds[l.id]" [name]="'loc-' + p.id + '-' + l.id"> {{ l.code }} · {{ l.name }}</label>
+                  }
+                  <button type="button" (click)="saveLocations(p)" [disabled]="saving()" class="mt-3 rounded-lg bg-[#006ef4] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">Guardar sedes</button>
+                </fieldset>
+              </div>
+            }
+          </article>
+        } @empty { <p class="rounded-2xl bg-white p-6 text-sm text-[#667085] shadow-sm">Aún no hay profesionales.</p> }
+      </section>
+    }
+  </section>
+</main>
